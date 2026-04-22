@@ -29,4 +29,6 @@ jobs:
         run: echo '${{ secrets.ENV_FILE }}' > .env
 
       - name: Run scraper
+        env:
+          PYTHONUNBUFFERED: '1'
         run: python main.py
