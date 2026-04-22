@@ -1,0 +1,32 @@
+name: Daily Scrape
+
+on:
+  schedule:
+    - cron: '0 22 * * *'  # 毎日 日本時間 07:00 (UTC 22:00)
+  workflow_dispatch:        # 手動実行ボタンも有効
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore credentials.json
+        run: echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+
+      - name: Restore .env
+        run: echo '${{ secrets.ENV_FILE }}' > .env
+
+      - name: Run scraper
+        run: python main.py

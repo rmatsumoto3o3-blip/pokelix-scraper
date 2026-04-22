@@ -1,0 +1,10 @@
+# 絶対にGitHubに上げてはいけないファイル
+credentials.json
+.env
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
