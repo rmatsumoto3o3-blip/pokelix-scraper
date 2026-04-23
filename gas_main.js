@@ -49,10 +49,9 @@ function main_process_all() {
     console.log('▶ Supabase同期開始（統計）');
     sync_all_stats_to_supabase();
 
-    SpreadsheetApp.getUi().alert('✅ 集計・同期がすべて完了しました！');
+    console.log('✅ 集計・同期がすべて完了しました！');
   } catch (e) {
     console.error(e);
-    SpreadsheetApp.getUi().alert('❌ エラーが発生しました:\n' + e.message);
   }
 }
 
@@ -347,7 +346,14 @@ function sync_deck_records_to_supabase(ss) {
     const deckCode      = String(row[2] || '').trim();
     const archetypeId   = String(row[3] || '').trim();
     const eventRank     = String(row[6] || 'ALL').trim();
-    const eventDate     = String(row[7] || '').trim();
+    // event_date: Googleシートが日付型で保存している場合、"M/D" 形式に変換
+    var eventDateRaw = row[7];
+    var eventDate = '';
+    if (eventDateRaw instanceof Date && !isNaN(eventDateRaw.getTime())) {
+      eventDate = (eventDateRaw.getMonth() + 1) + '/' + eventDateRaw.getDate();
+    } else {
+      eventDate = String(eventDateRaw || '').trim();
+    }
     const eventLocation = String(row[8] || '').trim();
     const createdAtRaw  = row[5];
 
