@@ -46,6 +46,26 @@ def supabase_headers():
         'Prefer': 'resolution=ignore-duplicates'  # deck_code重複はスキップ
     }
 
+def supabase_upsert_deck_record(code, archetype_id, event_rank, event_date, event_location, created_at):
+    """新規デッキを deck_records に追加（既存はスキップ）"""
+    if not SUPABASE_ENABLED:
+        return
+    url = f'{SUPABASE_URL}/rest/v1/deck_records'
+    payload = [{
+        'deck_code': code,
+        'archetype_id': archetype_id,
+        'event_rank': event_rank if event_rank != 'ALL' else None,
+        'event_date': event_date or None,
+        'event_location': event_location or None,
+        'created_at': created_at,
+    }]
+    try:
+        res = requests.post(url, headers=supabase_headers(), json=payload, timeout=30)
+        if res.status_code not in (200, 201):
+            print(f"  [Supabase] deck_records 追加失敗 {res.status_code}: {res.text[:100]}")
+    except Exception as e:
+        print(f"  [Supabase] deck_records エラー: {e}")
+
 def supabase_get_existing_codes():
     """deck_records から既存の deck_code 一覧を取得"""
     if not SUPABASE_ENABLED:
@@ -189,6 +209,11 @@ def run_single_scraper(ss, archetype_id, url, supabase_existing=None):
             if supabase_existing is not None:
                 supabase_existing.add(code)
 
+            supabase_upsert_deck_record(
+                code, archetype_id, final_rank,
+                item.get('event_date', ''), item.get('event_location', ''),
+                now_str
+            )
             print(f"完了: {code} | {final_rank} | {item.get('event_date','')} {item.get('event_location','')}")
 
             # 10件溜まったら一括書き込み
