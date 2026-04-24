@@ -46,49 +46,17 @@ def supabase_headers():
         'Prefer': 'resolution=ignore-duplicates'  # deck_code重複はスキップ
     }
 
-def supabase_upsert_decks(rows):
-    """
-    analyzed_decks テーブルに一括 upsert する。
-    rows: list of dicts with keys: deck_code, archetype_id, cards_json, event_rank
-    deck_code + archetype_id が一致する行は上書きしない（ignore-duplicates）
-    """
-    if not SUPABASE_ENABLED:
-        return
-    url = f'{SUPABASE_URL}/rest/v1/analyzed_decks'
-    payload = [
-        {
-            'user_id': USER_ID,
-            'deck_code': r['deck_code'],
-            'archetype_id': r['archetype_id'],
-            'cards_json': r['cards_json'],
-            'event_rank': r['event_rank'] if r['event_rank'] != 'ALL' else None,
-        }
-        for r in rows
-    ]
-    try:
-        res = requests.post(url, headers=supabase_headers(), json=payload, timeout=30)
-        if res.status_code in (200, 201):
-            print(f"  [Supabase] analyzed_decks に {len(payload)} 件 upsert 完了")
-        else:
-            print(f"  [Supabase] upsert 失敗 {res.status_code}: {res.text[:200]}")
-    except Exception as e:
-        print(f"  [Supabase] upsert エラー: {e}")
-
 def supabase_get_existing_codes():
-    """analyzed_decks から既存の deck_code 一覧を取得"""
+    """deck_records から既存の deck_code 一覧を取得"""
     if not SUPABASE_ENABLED:
         return set()
-    url = f'{SUPABASE_URL}/rest/v1/analyzed_decks?select=deck_code'
     existing = set()
     offset = 0
     limit = 1000
     try:
         while True:
-            res = requests.get(
-                url,
-                headers={**supabase_headers(), 'Range': f'{offset}-{offset+limit-1}'},
-                timeout=30
-            )
+            url = f'{SUPABASE_URL}/rest/v1/deck_records?select=deck_code&offset={offset}&limit={limit}'
+            res = requests.get(url, headers=supabase_headers(), timeout=30)
             if res.status_code not in (200, 206):
                 break
             data = res.json()
@@ -183,8 +151,7 @@ def run_single_scraper(ss, archetype_id, url, supabase_existing=None):
 
     print(f"処理対象: {len(results)} 件")
 
-    batch_rows = []      # スプレッドシート用
-    supabase_batch = []  # Supabase用
+    batch_rows = []
 
     for item in results:
         code, rank = item['code'], item['rank']
@@ -217,14 +184,6 @@ def run_single_scraper(ss, archetype_id, url, supabase_existing=None):
                 item.get('event_location', ''),
             ])
 
-            # Supabase 行
-            supabase_batch.append({
-                'deck_code': code,
-                'archetype_id': archetype_id,
-                'cards_json': cards,
-                'event_rank': final_rank,
-            })
-
             # 既存セットに追加（同一実行内の重複防止）
             all_existing.add(code)
             if supabase_existing is not None:
@@ -235,16 +194,13 @@ def run_single_scraper(ss, archetype_id, url, supabase_existing=None):
             # 10件溜まったら一括書き込み
             if len(batch_rows) >= 10:
                 save_batch(sheet, batch_rows)
-                supabase_upsert_decks(supabase_batch)
                 batch_rows = []
-                supabase_batch = []
         else:
             print(f"失敗: {code}")
 
     # 残りを書き込み
     if batch_rows:
         save_batch(sheet, batch_rows)
-        supabase_upsert_decks(supabase_batch)
 
 def save_batch(sheet, rows):
     for attempt in range(3):
