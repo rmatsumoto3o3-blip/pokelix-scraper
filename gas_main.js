@@ -388,7 +388,7 @@ function sync_deck_records_to_supabase(ss) {
   for (var i = 0; i < records.length; i += 500) {
     const chunk = records.slice(i, i + 500);
     const res = UrlFetchApp.fetch(
-      baseUrl + '/rest/v1/deck_records',
+      baseUrl + '/rest/v1/deck_records?on_conflict=deck_code,archetype_id',
       { method: 'post', headers: upsertHeaders, payload: JSON.stringify(chunk), muteHttpExceptions: true }
     );
     if (res.getResponseCode() >= 400) throw new Error('deck_records INSERT 失敗(' + i + '件目): ' + res.getContentText());
